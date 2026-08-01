@@ -102,23 +102,64 @@
         }
 
         // Shared Parser Protocol Layer
-        function parseContainerStructure() {
-            const view = new DataView(loadedAmmefBuffer);
-            
-            // Verify binary signature validation array check ('AMME' -> 0x41, 0x4D, 0x4D, 0x45)
-            const isSignatureValid = view.getUint8(0) === 0x41 && view.getUint8(1) === 0x4D && 
-                                     view.getUint8(2) === 0x4D && view.getUint8(3) === 0x45;
-            
-            if (!isSignatureValid) {
-                alert("Core Error: Selected workspace target payload is not a valid ArNet .ammef container configuration.");
-                loadedAmmefBuffer = null;
-                cleanAudioStartOffset = 0;
-                document.getElementById('ammefFileInput').value = '';
-                return;
-            }
-            
-            // Extract the precise 32-bit byte offset where the clean unmodulated tracking stream initiates
-            cleanAudioStartOffset = view.getUint32(4, true); // true indicates Little-Endian memory indexing
+function parseContainerStructure() {
+    const view = new DataView(loadedAmmefBuffer);
+
+    // Verify AMME signature
+    const isSignatureValid =
+        view.getUint8(0) === 0x41 &&
+        view.getUint8(1) === 0x4D &&
+        view.getUint8(2) === 0x4D &&
+        view.getUint8(3) === 0x45;
+
+    if (!isSignatureValid) {
+        alert("Core Error: Invalid AMMEF container.");
+        loadedAmmefBuffer = null;
+        return;
+    }
+
+    // Read AMMEF header
+    const version = view.getUint8(4);
+
+    const metadataOffset = view.getUint32(8, true);
+
+    const rawAudioOffset = view.getUint32(12, true);
+
+    cleanAudioStartOffset = view.getUint32(16, true);
+
+
+    console.log("[ArNet AMMEF] Container Loaded");
+    console.log("Version:", version);
+    console.log("Metadata starts:", metadataOffset);
+    console.log("Raw audio starts:", rawAudioOffset);
+    console.log("Clean audio starts:", cleanAudioStartOffset);
+
+
+    // Save raw location for the playback button
+    window.rawAudioStartOffset = rawAudioOffset;
+}
+
+    // Read AMMEF header
+    const version = view.getUint8(4);
+
+    const metadataOffset = view.getUint32(8, true);
+
+    const rawAudioOffset = view.getUint32(12, true);
+
+    cleanAudioStartOffset = view.getUint32(16, true);
+
+
+    console.log("[ArNet AMMEF] Container Loaded");
+    console.log("Version:", version);
+    console.log("Metadata starts:", metadataOffset);
+    console.log("Raw audio starts:", rawAudioOffset);
+    console.log("Clean audio starts:", cleanAudioStartOffset);
+
+
+    // Save raw location for the playback button
+    window.rawAudioStartOffset = rawAudioOffset;
+}
+ // true indicates Little-Endian memory indexing
             console.log(`[ArNet System OS] Container Loaded. High-Fidelity speech index mapping pointer pinned to layout index byte: ${cleanAudioStartOffset}`);
         }
 
@@ -134,8 +175,10 @@
             console.log("Routing raw un-decoded FM modulation carrier frequencies straight to sound-buffer arrays...");
             
             // Isolate payload tracking segment bounds: starts at index byte 8, truncates exactly at voice payload start point
-            const rawFmBufferSlice = loadedAmmefBuffer.slice(8, cleanAudioStartOffset);
-            
+            const rawFmBufferSlice = loadedAmmefBuffer.slice(
+    rawAudioStartOffset,
+    cleanAudioStartOffset);    
+      
             sendToSpeakerBus(rawFmBufferSlice);
         }
 
