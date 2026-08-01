@@ -204,18 +204,56 @@ return await response.arrayBuffer();
 }
 const rawFmTrack = await createAudioTrackBuffer(880); // High pitched tone mimicking an FM carrier sound wave
 const cleanVoiceTrack = await createAudioTrackBuffer(330); // Warm lower frequency tone representing structural voice signals
-// Constructing file architecture structures manually
-const headerSize = 8;
-const cleanAudioOffset = headerSize + rawFmTrack.byteLength;
+// Constructing AMMEF file architecture
+const headerSize = 20;
+
+// Metadata
+const metadata = JSON.stringify({
+    format: "ArNet Multi Modulation Encoded File",
+    version: "1.0",
+    modulation: "FM",
+    sampleRate: 48000,
+    channels: 1
+});
+
+const metadataBuffer = new TextEncoder().encode(metadata);
+
+
+// Calculate locations
+const metadataOffset = headerSize;
+const rawAudioOffset = metadataOffset + metadataBuffer.byteLength;
+const cleanAudioOffset = rawAudioOffset + rawFmTrack.byteLength;
+
+
+// Create header
 const containerHeaderBuffer = new ArrayBuffer(headerSize);
 const dataView = new DataView(containerHeaderBuffer);
-// Stamp identity flags: 'AMME' ASCII
-dataView.setUint8(0, 0x41); dataView.setUint8(1, 0x4D); dataView.setUint8(2, 0x4D); dataView.setUint8(3, 0x45);
-// Pin offset tracking mapping marker address
-dataView.setUint32(4, cleanAudioOffset, true);
+
+
+// AMME signature
+dataView.setUint8(0, 0x41);
+dataView.setUint8(1, 0x4D);
+dataView.setUint8(2, 0x4D);
+dataView.setUint8(3, 0x45);
+
+// Version
+dataView.setUint8(4, 1);
+
+// Metadata offset
+dataView.setUint32(8, metadataOffset, true);
+
+// Raw WAV offset
+dataView.setUint32(12, rawAudioOffset, true);
+
+// Clean WAV offset
+dataView.setUint32(16, cleanAudioOffset, true);
 // Stitch items structurally together
-const compositeBlob = new Blob([containerHeaderBuffer, rawFmTrack, cleanVoiceTrack]);
-loadedAmmefBuffer = await compositeBlob.arrayBuffer();
+const compositeBlob = new Blob([
+    containerHeaderBuffer,
+    metadataBuffer,
+    rawFmTrack,
+    cleanVoiceTrack]);
+ loadedAmmefBuffer = await compositeBlob.arrayBuffer();
 parseContainerStructure();
 alert("Sandbox Matrix Active: Synthetic testing .ammef setup compiled directly into execution loops successfully!");
 }
